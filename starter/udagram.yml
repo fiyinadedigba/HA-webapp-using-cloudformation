@@ -1,18 +1,243 @@
 Description: CD12352 - Infrastructure as Code Project - Udagram
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Udagram application infrastructure
 
 Parameters:
-  # Add your parameters here
+  EnvironmentName:
+    Type: String
+    Default: udagram
+
+  InstanceType:
+    Type: String
+    Default: t2.micro
+
+  WebAppMinSize:
+    Type: Number
+    Default: 4
+
+  WebAppMaxSize:
+    Type: Number
+    Default: 4
+
+  BucketName:
+    Type: String
+
+  LatestUbuntuAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
 
 Resources:
-  # Add your resources here
-  # We include a portion of the LaunchTemplate resource so you can use the UserData.
+  UdagramS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        IgnorePublicAcls: false
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+
+  UdagramS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref UdagramS3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadForObjects
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${BucketName}/*
+
+  UdagramInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-ec2-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub ${EnvironmentName}-s3-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Sub arn:aws:s3:::${BucketName}
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub arn:aws:s3:::${BucketName}/*
+
+  UdagramInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref UdagramInstanceRole
+
+  LBSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP to ALB
+      VpcId: !ImportValue
+        Fn::Sub: ${EnvironmentName}-VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 0
+          CidrIp: 0.0.0.0/0
+
+  WebServerSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP from ALB to web servers
+      VpcId: !ImportValue
+        Fn::Sub: ${EnvironmentName}-VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref LBSecGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 0
+          CidrIp: 0.0.0.0/0
+
   WebAppLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
-    Properties: 
+    Properties:
+      LaunchTemplateName: !Sub ${EnvironmentName}-lt
       LaunchTemplateData:
+        ImageId: !Ref LatestUbuntuAmiId
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Name: !Ref UdagramInstanceProfile
+        SecurityGroupIds:
+          - !Ref WebServerSecGroup
         UserData:
-          Fn::Base64: |
+          Fn::Base64: !Sub |
             #!/bin/bash
             apt-get update -y
-            sudo apt-get install nginx -y
-            service nginx start
+            apt-get install -y nginx awscli
+            systemctl enable nginx
+            mkdir -p /var/www/html
+
+            cat > /var/www/html/index.html <<EOF
+            <html>
+              <head><title>Udagram</title></head>
+              <body>
+                <h1>It works! Udagram, Udacity</h1>
+              </body>
+            </html>
+            EOF
+
+            aws s3 cp /var/www/html/index.html s3://${BucketName}/index.html
+            aws s3 cp s3://${BucketName}/index.html /var/www/html/index.html
+
+            systemctl restart nginx
+
+  WebAppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${EnvironmentName}-tg
+      Port: 80
+      Protocol: HTTP
+      VpcId: !ImportValue
+        Fn::Sub: ${EnvironmentName}-VPCID
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Matcher:
+        HttpCode: 200
+
+  WebAppLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-alb
+      Scheme: internet-facing
+      Type: application
+      SecurityGroups:
+        - !Ref LBSecGroup
+      Subnets:
+        - !ImportValue
+          Fn::Sub: ${EnvironmentName}-PUB1
+        - !ImportValue
+          Fn::Sub: ${EnvironmentName}-PUB2
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WebAppTargetGroup
+      LoadBalancerArn: !Ref WebAppLB
+      Port: 80
+      Protocol: HTTP
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref WebAppTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /
+      ListenerArn: !Ref Listener
+      Priority: 1
+
+  WebAppGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !ImportValue
+          Fn::Sub: ${EnvironmentName}-PRIV1
+        - !ImportValue
+          Fn::Sub: ${EnvironmentName}-PRIV2
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WebAppLaunchTemplate
+        Version: !GetAtt WebAppLaunchTemplate.LatestVersionNumber
+      MinSize: !Ref WebAppMinSize
+      MaxSize: !Ref WebAppMaxSize
+      DesiredCapacity: 4
+      TargetGroupARNs:
+        - !Ref WebAppTargetGroup
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 180
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-web-server
+          PropagateAtLaunch: true
+
+Outputs:
+  UdagramBucket:
+    Description: S3 bucket name
+    Value: !Ref UdagramS3Bucket
+    Export:
+      Name: !Sub ${EnvironmentName}-S3Bucket
+
+  LoadBalancerDNS:
+    Description: Public URL of the load balancer
+    Value: !Sub http://${WebAppLB.DNSName}
+    Export:
+      Name: !Sub ${EnvironmentName}-URL

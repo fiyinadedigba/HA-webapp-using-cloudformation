@@ -1,6 +1,22 @@
 [
-	{
-		"ParameterKey": "Add you parameters here",
-		"ParameterValue": "Add you parameters here"
-	}
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "udagram"
+  },
+  {
+    "ParameterKey": "InstanceType",
+    "ParameterValue": "t2.micro"
+  },
+  {
+    "ParameterKey": "WebAppMinSize",
+    "ParameterValue": "4"
+  },
+  {
+    "ParameterKey": "WebAppMaxSize",
+    "ParameterValue": "4"
+  },
+  {
+    "ParameterKey": "BucketName",
+    "ParameterValue": "udagram-fiyin-4829613-2026"
+  }
 ]
