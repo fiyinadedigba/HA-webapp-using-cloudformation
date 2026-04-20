@@ -122,6 +122,9 @@ It works! Udagram, Udacity
 
 ## Screenshots
 
+### CloudFormation stacks
+<img width="1300" height="745" alt="Screenshot 2026-04-20 at 16 06 28" src="https://github.com/user-attachments/assets/2c906573-8412-4bc6-8b63-3d6415ced879" />
+
 ### Network Stack Outputs
 
 <img width="685" height="767" alt="Screenshot 2026-04-20 at 13 31 04" src="https://github.com/user-attachments/assets/dbed769b-e3f9-43ae-b525-d94710143c54" />
