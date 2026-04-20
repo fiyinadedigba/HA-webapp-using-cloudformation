@@ -30,7 +30,9 @@ The solution follows AWS best practices for high availability:
 Traffic Flow:
 
 User → ALB → EC2 Instances → S3 (static content)
-<img width="1400" height="900" alt="clean-udagram-diagram-fixed" src="https://github.com/user-attachments/assets/c70700b6-0a0f-41dc-b63a-de81604bc3aa" />
+
+<img width="968" height="566" alt="Screenshot 2026-04-20 at 14 18 33" src="https://github.com/user-attachments/assets/b37b56d7-4d70-4d38-9e47-ef925bc28d09" />
+
 >> Traffic enters through the Internet Gateway, hits the Load Balancer in public subnets, which distributes requests to EC2 instances in private subnets managed by an Auto Scaling Group. Instances use a NAT Gateway for outbound access and retrieve static content from S3.”
 
 ---
