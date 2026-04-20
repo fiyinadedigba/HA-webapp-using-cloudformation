@@ -87,9 +87,9 @@ chmod +x create.sh update.sh delete.sh
 ./create.sh
 ```
 >> This will:
->> Create the network stack
->> Wait for completion
->> Create the application stack
+- Create the network stack
+- Wait for completion
+- Create the application stack
 
 ### Update the infrastructure
 ``` bash
