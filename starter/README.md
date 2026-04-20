@@ -114,3 +114,24 @@ It works! Udagram, Udacity
 - Fixed IAM permission issue by using instance profile Name instead of ARN
 - Corrected Ubuntu AMI retrieval by using the proper SSM parameter path
 
+--- 
+
+## Screenshots
+
+### Network Stack Outputs
+
+<img width="685" height="767" alt="Screenshot 2026-04-20 at 13 31 04" src="https://github.com/user-attachments/assets/dbed769b-e3f9-43ae-b525-d94710143c54" />
+
+### Application Stack Outputs
+
+<img width="650" height="276" alt="Screenshot 2026-04-20 at 13 32 32" src="https://github.com/user-attachments/assets/5e27d04a-2ad6-4766-a566-b6ef0cf1fc69" />
+
+### Working Application
+<img width="1255" height="590" alt="Screenshot 2026-04-20 at 13 29 42" src="https://github.com/user-attachments/assets/9b2d7fb8-312b-4644-90e6-688b63fe9ed2" />
+
+### S3 Bucket Contents
+
+<img width="659" height="156" alt="Screenshot 2026-04-20 at 13 32 47" src="https://github.com/user-attachments/assets/fe661828-c37b-40ca-b457-b51696e0d9c4" />
+
+
+
