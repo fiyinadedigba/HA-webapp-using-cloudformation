@@ -124,6 +124,11 @@ Resources:
       LaunchTemplateData:
         ImageId: !Ref LatestUbuntuAmiId
         InstanceType: !Ref InstanceType
+        BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 10
+            VolumeType: gp2
         IamInstanceProfile:
           Name: !Ref UdagramInstanceProfile
         SecurityGroupIds:
